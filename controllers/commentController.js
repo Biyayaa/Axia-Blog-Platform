@@ -26,3 +26,20 @@ exports.addComment = async (req, res) => {
         res.status(500).json({error: err.message});
     }
 };
+
+exports.deleteComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const comment = await Comment.findById(id);
+
+    if (!comment) return res.status(404).json({ message: 'Comment not found' });
+    if (comment.author.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    await comment.deleteOne();
+    res.json({ message: 'Comment deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
