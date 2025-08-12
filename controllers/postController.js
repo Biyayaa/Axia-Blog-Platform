@@ -42,7 +42,15 @@ exports.getPosts = async (req, res) => {
 exports.getPost = async (req, res) => {
   try {
     const post = await Post.findOne({ slug: req.params.slug })
+      .populate({
+        path: 'comments',
+        populate: [
+          { path: 'author', select: 'name email' },
+          { path: 'parent', select: 'content author' }
+        ]
+      })
       .populate('author', 'name email');
+
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
     res.json(post);
@@ -50,6 +58,7 @@ exports.getPost = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 exports.updatePost = async (req, res) => {
   try {
