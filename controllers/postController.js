@@ -1,3 +1,5 @@
+const dotenv = require('dotenv');
+dotenv.config();
 const Post = require('../models/post');
 const slugify = require('../utils/slugify');
 const Comment = require('../models/comment');
@@ -16,20 +18,16 @@ exports.createPost = async (req, res) => {
 
     let imageData = null;
 
-    // Upload image to Cloudinary if provided
+    // If file was uploaded by multer-storage-cloudinary, req.file already has url & public_id
     if (req.file) {
-      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-        folder: 'blog_posts'
-      });
-
       imageData = {
-        url: uploadResult.secure_url,
-        public_id: uploadResult.public_id
+        url: req.file.path, // Multer-storage-cloudinary stores URL in `path`
+        public_id: req.file.filename // Stores public_id in `filename`
       };
     }
 
     // Create post object
-    const post = await Post.create ({
+    const post = await Post.create({
       title,
       slug,
       content,
@@ -41,9 +39,11 @@ exports.createPost = async (req, res) => {
 
     res.status(201).json(post);
   } catch (err) {
+    console.error('Create Post Error:', err);
     res.status(500).json({ error: err.message });
   }
 };
+
 
 
 exports.getPosts = async (req, res) => {
@@ -114,10 +114,9 @@ exports.deletePost = async (req, res) => {
     }
 
     // Remove image from Cloudinary if it exists
-    if (post.image) {
-      const publicId = post.image.split('/').pop().split('.')[0];
+    if (post.image && post.image.public_id) {
       try {
-        await cloudinary.uploader.destroy(publicId);
+        await cloudinary.uploader.destroy(post.image.public_id);
       } catch (cloudErr) {
         console.error('Cloudinary deletion error:', cloudErr);
       }
@@ -135,3 +134,4 @@ exports.deletePost = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
