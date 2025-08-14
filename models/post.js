@@ -6,6 +6,7 @@ const PostSchema = new mongoose.Schema({
   content: { type: String, required: true },
   tags: [String],
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  image: { type: String, required: false},
   comments: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Comment' }],
   status: { type: String, enum: ['draft', 'published'], default: 'draft' }
 }, { timestamps: true });

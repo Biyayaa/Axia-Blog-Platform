@@ -1,6 +1,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const auth = require('../middleware/auth');
+const upload = require('../middleware/upload');
 const {
   createPost, getPosts, getPost, updatePost, deletePost
 } = require('../controllers/postController');
@@ -12,7 +13,7 @@ router.get('/:slug', getPost);
 router.post('/', auth, [
   body('title').notEmpty(),
   body('content').notEmpty()
-], createPost);
+], upload.single('image'), createPost);
 router.put('/:id', auth, updatePost);
 router.delete('/:id', auth, deletePost);
 

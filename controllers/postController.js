@@ -1,21 +1,42 @@
 const Post = require('../models/post');
 const slugify = require('../utils/slugify');
+const Comment = require('../models/comment');
+const cloudinary = require('cloudinary').v2;
 
 exports.createPost = async (req, res) => {
   try {
     const { title, content, tags, status } = req.body;
     const slug = slugify(title);
 
+    // Check if slug already exists
     const existing = await Post.findOne({ slug });
-    if (existing) return res.status(400).json({ message: 'Post with this title already exists' });
+    if (existing) {
+      return res.status(400).json({ message: 'Post with this title already exists' });
+    }
 
-    const post = await Post.create({
+    let imageData = null;
+
+    // Upload image to Cloudinary if provided
+    if (req.file) {
+      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'blog_posts'
+      });
+
+      imageData = {
+        url: uploadResult.secure_url,
+        public_id: uploadResult.public_id
+      };
+    }
+
+    // Create post object
+    const post = await Post.create ({
       title,
       slug,
       content,
       tags,
       status: status || 'draft',
-      author: req.user.id
+      author: req.user.id,
+      image: imageData
     });
 
     res.status(201).json(post);
@@ -23,6 +44,7 @@ exports.createPost = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
 
 exports.getPosts = async (req, res) => {
   try {
@@ -62,7 +84,8 @@ exports.getPost = async (req, res) => {
 
 exports.updatePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
     if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
@@ -81,16 +104,34 @@ exports.updatePost = async (req, res) => {
 
 exports.deletePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const postId = req.params.id;
+    const post = await Post.findById(postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
+    // Check if user is the author or admin
     if (post.author.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    // Remove image from Cloudinary if it exists
+    if (post.image) {
+      const publicId = post.image.split('/').pop().split('.')[0];
+      try {
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudErr) {
+        console.error('Cloudinary deletion error:', cloudErr);
+      }
+    }
+
+    // Delete the post
     await post.deleteOne();
-    res.json({ message: 'Post deleted' });
+
+    // Delete related comments
+    await Comment.deleteMany({ post: postId });
+
+    res.status(200).json({ message: 'Post, related comments, and image (if any) deleted successfully' });
   } catch (err) {
+    console.error('Post deletion error:', err);
     res.status(500).json({ error: err.message });
   }
 };
